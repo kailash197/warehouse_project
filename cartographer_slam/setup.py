@@ -14,6 +14,7 @@ setup(
         ('share/' + package_name, ['package.xml']),
         ('share/cartographer_slam/launch', glob('launch/*.launch.*')),
         ('share/cartographer_slam/config', glob('config/*')),
+        ('share/cartographer_slam/rviz', glob('rviz/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
