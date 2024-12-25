@@ -1,22 +1,34 @@
 import os
 from launch import LaunchDescription
+from launch.actions import DeclareLaunchArgument
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node
 
 def generate_launch_description():
-    map_file = 'warehouse_map_sim.yaml'
-    map_path = os.path.join(get_package_share_directory('map_server'), 'config', map_file)
-    rviz_config_file = os.path.join(get_package_share_directory('map_server'), 'rviz', 'map_display.rviz')
+    map_server_dir = get_package_share_directory('map_server')
+    rviz_config_file = os.path.join(map_server_dir, 'rviz', 'map_display.rviz')
+
+    declare_map_file_arg = DeclareLaunchArgument(
+        'map_file',
+        default_value='warehouse_map_sim.yaml',
+        description='Name of the map file to load'
+    )
+    map_file = LaunchConfiguration('map_file')
+
+    # Dynamically construct the map file path
+    map_path = PathJoinSubstitution([map_server_dir, 'config', map_file])
 
     return LaunchDescription([
-        
+        declare_map_file_arg,
+
         Node(
             package='nav2_map_server',
             executable='map_server',
             name='map_server',
             output='screen',
-            parameters=[{'use_sim_time': True}, 
-                        {'yaml_filename':map_path} 
+            parameters=[{'use_sim_time': True},
+                        {'yaml_filename':map_path}
                        ]),
 
         Node(
@@ -35,4 +47,4 @@ def generate_launch_description():
             output='screen',
             arguments=['-d', rviz_config_file]
         )
-    ]) 
+    ])
