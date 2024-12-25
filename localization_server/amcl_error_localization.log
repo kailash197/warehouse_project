@@ -1,0 +1,54 @@
+
+[INFO] [launch]: All log files can be found below /home/user/.ros/log/2024-12-25-21-23-56-405837-1_xterm-10458
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [map_server-1]: process started with pid [10459]
+[INFO] [amcl-2]: process started with pid [10461]
+[INFO] [lifecycle_manager-3]: process started with pid [10463]
+[INFO] [rviz2-4]: process started with pid [10465]
+[map_server-1] [INFO] [1735161836.596700115] [map_server]: 
+[map_server-1] 	map_server lifecycle node launched. 
+[map_server-1] 	Waiting on external lifecycle transitions to activate
+[map_server-1] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[map_server-1] [INFO] [1735161836.597829121] [map_server]: Creating
+[rviz2-4] QStandardPaths: XDG_RUNTIME_DIR not set, defaulting to '/tmp/runtime-user'
+[lifecycle_manager-3] [INFO] [1735161836.626213016] [lifecycle_manager_mapper]: Creating
+[lifecycle_manager-3] [INFO] [1735161836.638380510] [lifecycle_manager_mapper]: [34m[1mCreating and initializing lifecycle service clients[0m[0m
+[lifecycle_manager-3] [INFO] [1735161836.662924714] [lifecycle_manager_mapper]: [34m[1mStarting managed nodes bringup...[0m[0m
+[lifecycle_manager-3] [INFO] [1735161836.663014886] [lifecycle_manager_mapper]: [34m[1mConfiguring map_server[0m[0m
+[amcl-2] [INFO] [1735161836.663807620] [amcl]: 
+[amcl-2] 	amcl lifecycle node launched. 
+[amcl-2] 	Waiting on external lifecycle transitions to activate
+[amcl-2] 	See https://design.ros2.org/articles/node_lifecycle.html for more information.
+[amcl-2] [INFO] [1735161836.665420887] [amcl]: Creating
+[map_server-1] [INFO] [1735161836.765777162] [map_server]: Configuring
+[map_server-1] [INFO] [map_io]: Loading yaml file: /home/user/ros2_ws/install/map_server/share/map_server/config/warehouse_map_sim.yaml
+[map_server-1] [DEBUG] [map_io]: resolution: 0.05
+[map_server-1] [DEBUG] [map_io]: origin[0]: -1.11
+[map_server-1] [DEBUG] [map_io]: origin[1]: -4.35
+[map_server-1] [DEBUG] [map_io]: origin[2]: 0
+[map_server-1] [DEBUG] [map_io]: free_thresh: 0.25
+[map_server-1] [DEBUG] [map_io]: occupied_thresh: 0.65
+[map_server-1] [DEBUG] [map_io]: mode: trinary
+[map_server-1] [DEBUG] [map_io]: negate: 0
+[map_server-1] [INFO] [map_io]: Loading image_file: /home/user/ros2_ws/install/map_server/share/map_server/config/warehouse_map_sim.pgm
+[map_server-1] [DEBUG] [map_io]: Read map /home/user/ros2_ws/install/map_server/share/map_server/config/warehouse_map_sim.pgm: 157 X 137 map @ 0.05 m/cell
+[lifecycle_manager-3] [INFO] [1735161836.774038548] [lifecycle_manager_mapper]: [34m[1mConfiguring amcl[0m[0m
+[amcl-2] [INFO] [1735161836.774533474] [amcl]: Configuring
+[amcl-2] [INFO] [1735161836.774638937] [amcl]: initTransforms
+[amcl-2] [INFO] [1735161836.789327690] [amcl]: initPubSub
+[amcl-2] [INFO] [1735161836.796754986] [amcl]: Subscribed to map topic.
+[amcl-2] [ERROR] [1735161836.798818651] [amcl]: Caught exception in callback for transition 10
+[amcl-2] [ERROR] [1735161836.798858204] [amcl]: Original error: According to the loaded plugin descriptions the class differential with base class type nav2_amcl::MotionModel does not exist. Declared types are  nav2_amcl::DifferentialMotionModel nav2_amcl::OmniMotionModel
+[amcl-2] [WARN] [1735161836.798890176] [amcl]: Error occurred while doing error handling.
+[amcl-2] [FATAL] [1735161836.798910373] [amcl]: Lifecycle node amcl does not have error state implemented
+[lifecycle_manager-3] [ERROR] [1735161836.799377598] [lifecycle_manager_mapper]: Failed to change state for node: amcl
+[lifecycle_manager-3] [ERROR] [1735161836.799416531] [lifecycle_manager_mapper]: Failed to bring up all requested nodes. Aborting bringup.
+
+
+
+
+
+
+
+
+
