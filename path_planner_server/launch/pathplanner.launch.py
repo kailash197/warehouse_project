@@ -14,6 +14,11 @@ def resolve_yaml_file(context, yaml_file):
     else:
         return os.path.join(path_planner_server_dir, 'config', f'{yaml_file}_real.yaml')
 
+def resolve_command_topic(context):
+    use_sim_time = context.launch_configurations['use_sim_time']
+    topic = 'diffbot_base_controller/cmd_vel_unstamped' if use_sim_time.lower() == 'true' else 'cmd_vel'
+    return topic
+
 def add_nodes(context):
     return [
         Node(
@@ -22,7 +27,7 @@ def add_nodes(context):
             name='controller_server',
             output='screen',
             remappings=[
-                ('cmd_vel', 'diffbot_base_controller/cmd_vel_unstamped')
+                ('cmd_vel', resolve_command_topic(context))
             ],
             parameters=[resolve_yaml_file(context, 'controller')],
         ),
