@@ -20,6 +20,8 @@ def resolve_command_topic(context):
     return topic
 
 def add_nodes(context):
+    use_sim_time = LaunchConfiguration('use_sim_time')
+
     return [
         Node(
             package='nav2_controller',
@@ -29,7 +31,7 @@ def add_nodes(context):
             remappings=[
                 ('cmd_vel', resolve_command_topic(context))
             ],
-            parameters=[resolve_yaml_file(context, 'controller')],
+            parameters=[{'use_sim_time': use_sim_time}, resolve_yaml_file(context, 'controller')],
         ),
 
         Node(
@@ -37,7 +39,7 @@ def add_nodes(context):
             executable='planner_server',
             name='planner_server',
             output='screen',
-            parameters=[resolve_yaml_file(context, 'planner')],
+            parameters=[{'use_sim_time': use_sim_time}, resolve_yaml_file(context, 'planner')],
         ),
 
         Node(
@@ -46,7 +48,7 @@ def add_nodes(context):
             executable='behavior_server',
             name='behavior_server',
             output='screen',
-            parameters=[resolve_yaml_file(context, 'recoveries')]
+            parameters=[{'use_sim_time': use_sim_time}, resolve_yaml_file(context, 'recoveries')]
         ),
 
         Node(
@@ -54,7 +56,7 @@ def add_nodes(context):
             executable='bt_navigator',
             name='bt_navigator',
             output='screen',
-            parameters=[resolve_yaml_file(context, 'bt_navigator')]
+            parameters=[{'use_sim_time': use_sim_time}, resolve_yaml_file(context, 'bt_navigator')]
         ),
 
         Node(
@@ -80,7 +82,6 @@ def generate_launch_description():
         default_value='True',
         description='Use simulation time: True or False'
     )
-
     dynamic_nodes = OpaqueFunction(function=add_nodes)
 
 
