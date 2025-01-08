@@ -19,7 +19,8 @@ setup(
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': [
+        'console_scripts': ['move_shelf_to_ship = '
+            'nav2_apps.move_shelf_to_ship:main',
         ],
     },
 )
