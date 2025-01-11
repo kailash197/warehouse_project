@@ -73,6 +73,8 @@ def add_nodes(context):
 
 
 def generate_launch_description():
+    service_package_dir = get_package_share_directory("attach_shelf")
+    approach_shelf_service_config = os.path.join(service_package_dir, 'config', 'approach_service_server.yaml'),
 
     path_planner_server_dir = get_package_share_directory('path_planner_server')
     rviz_config_file = os.path.join(path_planner_server_dir, 'rviz', 'pathplanning.rviz')
@@ -94,5 +96,12 @@ def generate_launch_description():
             name='rviz2',
             output='screen',
             arguments=['-d', rviz_config_file]
+        ),
+
+        Node(
+            package='attach_shelf',
+            executable='approach_service_server_node',
+            output='screen',
+            parameters=[approach_shelf_service_config]
         ),
     ])
