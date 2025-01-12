@@ -78,6 +78,8 @@ def generate_launch_description():
 
     path_planner_server_dir = get_package_share_directory('path_planner_server')
     rviz_config_file = os.path.join(path_planner_server_dir, 'rviz', 'pathplanning.rviz')
+    filters_yaml = os.path.join(get_package_share_directory(
+        'path_planner_server'), 'config', 'filters.yaml')
 
     declare_use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time',
@@ -96,7 +98,22 @@ def generate_launch_description():
             name='rviz2',
             output='screen',
             arguments=['-d', rviz_config_file]
-        ),
+        ), 
+        
+        Node(
+            package='nav2_map_server',
+            executable='map_server',
+            name='filter_mask_server',
+            output='screen',
+            emulate_tty=True,
+            parameters=[filters_yaml]),
+        Node(
+            package='nav2_map_server',
+            executable='costmap_filter_info_server',
+            name='costmap_filter_info_server',
+            output='screen',
+            emulate_tty=True,
+            parameters=[filters_yaml]),
 
         Node(
             package='attach_shelf',

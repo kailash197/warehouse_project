@@ -1,7 +1,3 @@
-
-
-
-
 import rclpy
 from rclpy.duration import Duration
 from rclpy.node import Node
@@ -12,24 +8,24 @@ from attach_shelf.srv import GoToLoading
 
 from tf_transformations import quaternion_from_euler
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
-from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 import math
+import numpy as np
+
 
 class WarehouseNavigator(Node):
     def __init__(self):
-        rclpy.init()
+        super().__init__('warehouse_navigator')
         self.navigator = BasicNavigator()
 
         self.init_position = [0.0, 0.0, 0.0]
         self.loading_position = [5.65, -0.20, -1.4]
         self.shipping_position = [2.45, 1.45, 1.57]
 
-        self.node = rclpy.create_node('helper_node')
-        self.service_client = self.node.create_client(GoToLoading, '/approach_shelf')
+        self.service_client = self.create_client(GoToLoading, '/approach_shelf')
         
-        self.elevator_down_pub_ = self.node.create_publisher(String, '/elevator_down', 10)
-        self.global_footprint_pub_ = self.node.create_publisher(Polygon, '/global_costmap/footprint', 10)
-        self.local_footprint_pub_ = self.node.create_publisher(Polygon, '/local_costmap/footprint', 10)
+        self.elevator_down_pub_ = self.create_publisher(String, '/elevator_down', 10)
+        self.global_footprint_pub_ = self.create_publisher(Polygon, '/global_costmap/footprint', 10)
+        self.local_footprint_pub_ = self.create_publisher(Polygon, '/local_costmap/footprint', 10)
 
     def create_pose_stamped(self, posex, posey, posetheta, frame_id='map', stamp=None):
         """
@@ -75,22 +71,22 @@ class WarehouseNavigator(Node):
 
     def attach_shelf(self):
         while not self.service_client.wait_for_service(timeout_sec=1.0):
-            self.node.get_logger().info('Waiting for the /approach_shelf service to become available...')
+            self.get_logger().info('Waiting for the /approach_shelf service to become available...')
 
         request = GoToLoading.Request()
         request.attach_to_shelf = True
 
         future = self.service_client.call_async(request)
-        rclpy.spin_until_future_complete(self.node, future)
+        rclpy.spin_until_future_complete(self, future)
 
         if future.result() is not None:
             response = future.result()
             if response.complete:
-                self.node.get_logger().info('Shelf successfully attached.')
+                self.get_logger().info('Shelf successfully attached.')
             else:
-                self.node.get_logger().info('Failed to attach to the shelf.')
+                self.get_logger().info('Failed to attach to the shelf.')
         else:
-            self.node.get_logger().error('Service call failed.')
+            self.get_logger().error('Service call failed.')
 
     def detach_shelf(self):
         message = String()
@@ -122,7 +118,8 @@ class WarehouseNavigator(Node):
     def update_robot_footprint(self, radius):
         message = Polygon()
         point = Point32()
-        for angle in range(0, 2*math.pi, 0.1):
+        angles = np.arange(0, 2 * np.pi, 0.1)
+        for angle in angles:
             point.x = radius * math.cos(angle)
             point.y = radius * math.sin(angle)
             message.points.append(point)
@@ -146,7 +143,7 @@ class WarehouseNavigator(Node):
         # Attach shelf & increase robot footprint
         self.get_logger().info('Arrived at loading position. Calling service to load shelf...')
         self.attach_shelf()
-        self.update_robot_footprint(0.45)
+        self.update_robot_footprint(0.50)
 
         # Navigate to shipping position
         self.get_logger().info('Navigating to shipping position...')
@@ -163,5 +160,6 @@ class WarehouseNavigator(Node):
 
 
 if __name__ == '__main__':
+    rclpy.init()
     navigator = WarehouseNavigator()
     navigator.main()
