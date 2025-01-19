@@ -2,9 +2,9 @@ controller_server:
   ros__parameters:
     use_sim_time: True
     controller_frequency: 10.0
-    min_x_velocity_threshold: 0.01
+    min_x_velocity_threshold: 0.001
     min_y_velocity_threshold: 0.5
-    min_theta_velocity_threshold: 0.01
+    min_theta_velocity_threshold: 0.001
     failure_tolerance: 0.3
     progress_checker_plugin: "progress_checker"
     goal_checker_plugins: ["general_goal_checker"] 
@@ -13,14 +13,14 @@ controller_server:
     # Progress checker parameters
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.05
+      required_movement_radius: 0.5
       movement_time_allowance: 10.0
     # Goal checker parameters
     general_goal_checker:
       stateful: True
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.18
-      yaw_goal_tolerance: 0.12
+      xy_goal_tolerance: 0.20
+      yaw_goal_tolerance: 0.17
     # DWB parameters
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
@@ -32,7 +32,7 @@ controller_server:
       max_vel_theta: 0.7
       min_speed_xy: 0.0
       max_speed_xy: 0.26
-      min_speed_theta: 0.05
+      min_speed_theta: 0.0
       acc_lim_x: 2.5
       acc_lim_y: 0.0
       acc_lim_theta: 1.2
@@ -46,12 +46,12 @@ controller_server:
       linear_granularity: 0.05
       angular_granularity: 0.025
       transform_tolerance: 0.2
-      xy_goal_tolerance: 0.18
+      xy_goal_tolerance: 0.20
       trans_stopped_velocity: 0.25
       short_circuit_trajectory_evaluation: True
       stateful: True
-      # critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
-      critics: ["RotateToGoal", "Oscillation", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      # critics: ["RotateToGoal", "Oscillation", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
       BaseObstacle.scale: 0.02
       PathAlign.scale: 32.0
       PathAlign.forward_point_distance: 0.1
@@ -65,8 +65,8 @@ controller_server:
 local_costmap:
   local_costmap:
     ros__parameters:
-      update_frequency: 5.0
-      publish_frequency: 5.0
+      update_frequency: 4.0
+      publish_frequency: 4.0
       global_frame: odom
       robot_base_frame: robot_base_footprint
       use_sim_time: True
@@ -74,10 +74,10 @@ local_costmap:
       width: 2
       height: 2
       resolution: 0.05
-      robot_radius: 0.30
-      # footprint: '[ [0.089, 0.069], [0.089, -0.069], [-0.089, -0.069], [-0.089, 0.069] ]'
+      robot_radius: 0.25
+      # footprint: '[ [0.25, 0.25], [0.25, -0.25], [-0.25, -0.25], [-0.25, 0.25] ]'
 
-      plugins: ["voxel_layer", "inflation_layer"]
+      plugins: ["obstacle_layer", "inflation_layer"]
       filters: ["keepout_filter"]
       keepout_filter:
         plugin: "nav2_costmap_2d::KeepoutFilter"
@@ -86,7 +86,22 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 3.0
-        inflation_radius: 0.45
+        inflation_radius: 0.20
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 0.5
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+          raytrace_max_range: 20.0
+          raytrace_min_range: 0.06
+          obstacle_max_range: 20.0
+          obstacle_min_range: 0.06
+          
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
@@ -102,11 +117,11 @@ local_costmap:
           max_obstacle_height: 2.0
           clearing: True
           marking: True
-          data_type: "LaserScan"
-          raytrace_max_range: 3.0
-          raytrace_min_range: 0.0
-          obstacle_max_range: 2.5
-          obstacle_min_range: 0.0
+          data_type: "LaserScan"          
+          raytrace_max_range: 20.0
+          raytrace_min_range: 0.06
+          obstacle_max_range: 20.0
+          obstacle_min_range: 0.06
       static_layer:
         map_subscribe_transient_local: True
       always_send_full_costmap: True

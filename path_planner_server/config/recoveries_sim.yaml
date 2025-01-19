@@ -8,24 +8,21 @@ behavior_server:
     # Common parameters
     global_frame: odom
     robot_base_frame: robot_base_footprint
-    transform_timeout: 0.1
+    transform_timeout: 0.5
     use_sim_time: True
+    min_rotational_vel: 0.05
+    max_rotational_vel: 1.5
+    rotational_acc_lim: 3.2
 
     # Spin behavior
     spin:
       plugin: "nav2_behaviors/Spin"
-      min_rotational_vel: 0.05
-      max_rotational_vel: 1.5
-      rotational_acc_lim: 3.2
 
     # BackUp behavior
     backup:
       plugin: "nav2_behaviors/BackUp"
-      speed: -0.15
-      min_x_velocity_threshold: 0.01
 
     # Wait behavior
     wait:
       plugin: "nav2_behaviors/Wait"
-      wait_duration: 10.0
 
