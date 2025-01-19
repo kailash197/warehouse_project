@@ -22,6 +22,8 @@ def resolve_command_topic(context):
 def add_nodes(context):
     use_sim_time = LaunchConfiguration('use_sim_time')
 
+    filters_yaml = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'filters.yaml')
+
     return [
         Node(
             package='nav2_controller',
@@ -60,13 +62,30 @@ def add_nodes(context):
         ),
 
         Node(
+            package='nav2_map_server',
+            executable='map_server',
+            name='filter_mask_server',
+            output='screen',
+            emulate_tty=True,
+            parameters=[filters_yaml]),
+
+        Node(
+            package='nav2_map_server',
+            executable='costmap_filter_info_server',
+            name='costmap_filter_info_server',
+            output='screen',
+            emulate_tty=True,
+            parameters=[filters_yaml]),
+
+        Node(
             package='nav2_lifecycle_manager',
             executable='lifecycle_manager',
             name='lifecycle_manager_pathplanner',
             output='screen',
             parameters=[{
                 'autostart': True,
-                'node_names': ['planner_server', 'controller_server', 'behavior_server', 'bt_navigator']
+                'node_names': ['planner_server', 'controller_server', 'behavior_server', 'bt_navigator',
+                                'filter_mask_server', 'costmap_filter_info_server']
             }]
         )
     ]
