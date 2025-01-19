@@ -7,12 +7,18 @@ import os
 
 def resolve_yaml_file(context, yaml_file):
     """Determine which YAML file to use based on the use_sim_time argument."""
-    path_planner_server_dir = get_package_share_directory('path_planner_server')
     use_sim_time = context.launch_configurations['use_sim_time']
+
+    pkg_dir = get_package_share_directory('path_planner_server')
+    config_dir = 'config'
+
+    if yaml_file == 'approach_service_server':
+        pkg_dir = get_package_share_directory("attach_shelf")
+
     if use_sim_time.lower() == 'true':
-        return os.path.join(path_planner_server_dir, 'config', f'{yaml_file}_sim.yaml')
+        return os.path.join(pkg_dir, config_dir, f'{yaml_file}_sim.yaml')
     else:
-        return os.path.join(path_planner_server_dir, 'config', f'{yaml_file}_real.yaml')
+        return os.path.join(pkg_dir, config_dir, f'{yaml_file}_real.yaml')
 
 def resolve_command_topic(context):
     use_sim_time = context.launch_configurations['use_sim_time']
@@ -21,6 +27,7 @@ def resolve_command_topic(context):
 
 def add_nodes(context):
     use_sim_time = LaunchConfiguration('use_sim_time')
+    rviz_config_file = os.path.join(get_package_share_directory('path_planner_server'), 'rviz', 'pathplanning.rviz')
 
     return [
         Node(
@@ -43,11 +50,13 @@ def add_nodes(context):
         ),
 
         Node(
-
             package='nav2_behaviors',
             executable='behavior_server',
             name='behavior_server',
             output='screen',
+            remappings=[
+                ('cmd_vel', resolve_command_topic(context))
+            ],
             parameters=[{'use_sim_time': use_sim_time}, resolve_yaml_file(context, 'recoveries')]
         ),
 
@@ -67,31 +76,8 @@ def add_nodes(context):
             parameters=[{
                 'autostart': True,
                 'node_names': ['planner_server', 'controller_server', 'behavior_server', 'bt_navigator']
-            }]
-        )
-    ]
+            }]),
 
-
-def generate_launch_description():
-    service_package_dir = get_package_share_directory("attach_shelf")
-    approach_shelf_service_config = os.path.join(service_package_dir, 'config', 'approach_service_server.yaml'),
-
-    path_planner_server_dir = get_package_share_directory('path_planner_server')
-    rviz_config_file = os.path.join(path_planner_server_dir, 'rviz', 'pathplanning.rviz')
-    filters_yaml = os.path.join(get_package_share_directory(
-        'path_planner_server'), 'config', 'filters.yaml')
-
-    declare_use_sim_time_arg = DeclareLaunchArgument(
-        'use_sim_time',
-        default_value='True',
-        description='Use simulation time: True or False'
-    )
-    dynamic_nodes = OpaqueFunction(function=add_nodes)
-
-
-    return LaunchDescription([
-        declare_use_sim_time_arg,
-        dynamic_nodes,
         Node(
             package='rviz2',
             executable='rviz2',
@@ -99,26 +85,25 @@ def generate_launch_description():
             output='screen',
             arguments=['-d', rviz_config_file]
         ), 
-        
-        Node(
-            package='nav2_map_server',
-            executable='map_server',
-            name='filter_mask_server',
-            output='screen',
-            emulate_tty=True,
-            parameters=[filters_yaml]),
-        Node(
-            package='nav2_map_server',
-            executable='costmap_filter_info_server',
-            name='costmap_filter_info_server',
-            output='screen',
-            emulate_tty=True,
-            parameters=[filters_yaml]),
 
         Node(
             package='attach_shelf',
             executable='approach_service_server_node',
             output='screen',
-            parameters=[approach_shelf_service_config]
+            parameters=[resolve_yaml_file(context, 'approach_service_server')],
         ),
+    ]
+
+
+def generate_launch_description():
+    declare_use_sim_time_arg = DeclareLaunchArgument(
+        'use_sim_time',
+        default_value='True',
+        description='Use simulation time: True or False'
+    )
+    dynamic_nodes = OpaqueFunction(function=add_nodes)
+
+    return LaunchDescription([
+        declare_use_sim_time_arg,
+        dynamic_nodes
     ])

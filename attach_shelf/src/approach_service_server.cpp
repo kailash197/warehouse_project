@@ -10,6 +10,7 @@
 #include "tf2_ros/transform_broadcaster.h"
 #include "tf2_ros/transform_listener.h"
 #include <algorithm> //std::find_if()
+#include <cmath>
 
 using namespace rclcpp;
 using namespace std;
@@ -25,18 +26,6 @@ using Groups =
     std::vector<std::tuple<size_t, size_t, std::pair<double, double>>>;
 using TransformStamped = geometry_msgs::msg::TransformStamped;
 using Pose2D = geometry_msgs::msg::Pose2D;
-
-// const string scan_topic = "/scan";
-// const string cmd_topic = "/diffbot_base_controller/cmd_vel_unstamped";
-// const string service_name = "/approach_shelf";
-// constexpr double linear_vel = 0.50;
-// constexpr float intensity_threshold = 7000;
-// const string target_frame = "robot_front_laser_base_link";
-// const string source_frame = "cart_frame";
-// const string reference_frame = "odom";
-// const string odom_topic = "/diffbot_base_controller/odom";
-// constexpr double distance_forward = 0.65; // meters
-// const string elevator_up_topic = "/elevator_up";
 
 // Function to normalize angle to [-PI, PI]
 double normalize_angle(double angle) {
@@ -165,36 +154,9 @@ void AppoarchServiceServerNode::service_callback(
     return;
   }
   if (attach_to_shelf) {
-    RCLCPP_INFO(this->get_logger(), "State: Get under the shelf.");
+    RCLCPP_INFO(this->get_logger(), "State: Moving towards the shelf.");
     // perform final approach
     // i. move robot underneathe the shelf
-    //  Calculate distance
-
-    /*
-
-    // assign velocities
-    double kp_distance = 1.0;
-    double kp_yaw = 1.0;
-    double linear_vel = 0.0;
-    double angular_vel = 0.0;
-
-    if (distance > PROXIMITY_LIMIT) {
-      if (distance > 1.0) {
-        kp_distance = 1.0;
-        kp_yaw = 1.0;
-      } else {
-        kp_distance = 0.5;
-        kp_yaw = 0.5;
-      }
-      if (fabs(yaw) > M_PI / 6.0) {
-        kp_distance *= 0.5;
-        kp_yaw *= 1.2;
-      }
-
-      linear_vel = kp_distance * distance;
-      angular_vel = kp_yaw * yaw;
-    }
-    */
     TransformStamped transform;
     Twist cmd_vel_;
     double distance, dx, dy, yaw, angular_vel = 0.0;
@@ -216,7 +178,7 @@ void AppoarchServiceServerNode::service_callback(
       yaw = atan2(dy, dx);
 
       if (distance > 0.15) {
-        while (rclcpp::ok() && fabs(yaw) > 0.5) {
+        while (rclcpp::ok() && fabs(yaw) > 0.05) {
           try {
             transform = tf_buffer_.lookupTransform(
                 "robot_base_link", "cart_frame", tf2::TimePointZero);
@@ -229,10 +191,8 @@ void AppoarchServiceServerNode::service_callback(
           dy = transform.transform.translation.y;
           yaw = atan2(dy, dx);
           angular_vel = (yaw >= 0.0) ? 0.3 : -0.3;
+          //   angular_vel = 2 * yaw;
           publish_velocity(0.0, angular_vel);
-          //   RCLCPP_INFO(this->get_logger(), "dx: %.2f, dy: %.2f, thetha:
-          //   %.2f",
-          //               dx, dy, current_pos_.theta);
         }
         publish_velocity(linear_vel, 0.0);
         RCLCPP_DEBUG(get_logger(), "Distance to cart TF: %.4fm", distance);
@@ -243,9 +203,15 @@ void AppoarchServiceServerNode::service_callback(
     }
     publish_velocity(0.0, 0.0);
 
-    // move 30cm further
-    RCLCPP_INFO(this->get_logger(), "State: Move forward.");
+    // move further
+    RCLCPP_INFO(this->get_logger(), "State: Get Under the Shelf: %.2fm",
+                distance_forward);
     rclcpp::sleep_for(100ms);
+    double angle_diff = normalize_angle(-M_PI_2 - current_pos_.theta);
+    while (fabs(angle_diff) > 0.05) {
+      publish_velocity(0.0, 2 * angle_diff);
+      angle_diff = normalize_angle(-M_PI_2 - current_pos_.theta);
+    }
     yaw = current_pos_.theta;
     double x_target = current_pos_.x + distance_forward * cos(yaw);
     double y_target = current_pos_.y + distance_forward * sin(yaw);
@@ -255,13 +221,18 @@ void AppoarchServiceServerNode::service_callback(
 
     while (rclcpp::ok() && distance > 0.01) {
       publish_velocity(0.10, 0.0);
-      // update
-      yaw = current_pos_.theta;
-      dx = x_target - current_pos_.x;
+      dx = 0.0;
       dy = y_target - current_pos_.y;
       distance = std::sqrt(dx * dx + dy * dy);
       RCLCPP_DEBUG(this->get_logger(), "Distance: %.2f.", distance);
     }
+    publish_velocity(0.0, 0.0);
+
+    // rotate to +90 degrees yaw
+    do {
+      angle_diff = normalize_angle(M_PI_2 - current_pos_.theta);
+      publish_velocity(0, 2 * angle_diff);
+    } while (rclcpp::ok() && fabs(angle_diff) > 0.05);
     publish_velocity(0.0, 0.0);
 
     // ii. lift the shelf

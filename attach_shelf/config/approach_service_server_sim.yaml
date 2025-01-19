@@ -1,0 +1,15 @@
+# config/approach_service_server_sim.yaml
+approach_shelf_server_node:
+  ros__parameters:
+    use_sim_time: true
+    scan_topic: "/scan"
+    cmd_topic: "/diffbot_base_controller/cmd_vel_unstamped"
+    service_name: "/approach_shelf"
+    linear_vel: 0.20
+    intensity_threshold: 7000.0
+    target_frame: "robot_front_laser_base_link"
+    source_frame: "cart_frame"
+    reference_frame: "odom"
+    odom_topic: "/diffbot_base_controller/odom"
+    distance_forward: 0.50
+    elevator_up_topic: "/elevator_up"
