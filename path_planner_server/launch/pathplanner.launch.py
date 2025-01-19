@@ -7,12 +7,18 @@ import os
 
 def resolve_yaml_file(context, yaml_file):
     """Determine which YAML file to use based on the use_sim_time argument."""
-    path_planner_server_dir = get_package_share_directory('path_planner_server')
     use_sim_time = context.launch_configurations['use_sim_time']
+
+    pkg_dir = get_package_share_directory('path_planner_server')
+    config_dir = 'config'
+
+    if yaml_file == 'approach_service_server':
+        pkg_dir = get_package_share_directory("attach_shelf")
+
     if use_sim_time.lower() == 'true':
-        return os.path.join(path_planner_server_dir, 'config', f'{yaml_file}_sim.yaml')
+        return os.path.join(pkg_dir, config_dir, f'{yaml_file}_sim.yaml')
     else:
-        return os.path.join(path_planner_server_dir, 'config', f'{yaml_file}_real.yaml')
+        return os.path.join(pkg_dir, config_dir, f'{yaml_file}_real.yaml')
 
 def resolve_command_topic(context):
     use_sim_time = context.launch_configurations['use_sim_time']
@@ -45,7 +51,6 @@ def add_nodes(context):
         ),
 
         Node(
-
             package='nav2_behaviors',
             executable='behavior_server',
             name='behavior_server',
@@ -76,6 +81,12 @@ def add_nodes(context):
             output='screen',
             emulate_tty=True,
             parameters=[filters_yaml]),
+        Node(
+            package='attach_shelf',
+            executable='approach_service_server_node',
+            output='screen',
+            parameters=[resolve_yaml_file(context, 'approach_service_server')],
+        ),
 
         Node(
             package='nav2_lifecycle_manager',
@@ -102,7 +113,6 @@ def generate_launch_description():
         description='Use simulation time: True or False'
     )
     dynamic_nodes = OpaqueFunction(function=add_nodes)
-
 
     return LaunchDescription([
         declare_use_sim_time_arg,
