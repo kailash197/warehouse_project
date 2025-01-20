@@ -3,6 +3,7 @@ from rclpy.duration import Duration
 from rclpy.node import Node
 
 from geometry_msgs.msg import PoseStamped
+from attach_shelf.srv import GoToLoading
 
 from tf_transformations import quaternion_from_euler
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
@@ -15,7 +16,11 @@ class WarehouseNavigator(Node):
 
         self.init_position = [-0.10, 0.0, 0.0]
         self.pre_loading_position = [5.55, -0.0, -1.4]
+        self.loading_position = [5.55, -0.5, -1.4]
+        self.post_loading_position = [5.55, 0.25, 3.14]
         self.current_result = True
+
+        self.service_client = self.create_client(GoToLoading, '/approach_shelf')
 
     def create_pose_stamped(self, posex, posey, posetheta, frame_id='map', stamp=None):
         """
@@ -83,15 +88,53 @@ class WarehouseNavigator(Node):
                       ' seconds.')
         self.exit_on_failure(self.init_position)
 
+    def attach_shelf(self):
+        while not self.service_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for the /approach_shelf service to become available...')
+
+        request = GoToLoading.Request()
+        request.attach_to_shelf = True
+
+        future = self.service_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.result() is not None:
+            response = future.result()
+            if response.complete:
+                self.get_logger().info('Shelf successfully attached.')
+            else:
+                self.get_logger().info('Failed to attach to the shelf.')
+        else:
+            self.get_logger().error('Service call failed.')
+
+    def update_robot_footprints(self, radius):
+        pass
+
     def main(self, args=None):
-        # Initialize robot position & Wait for navigation to activate
-        self.set_initial_pose(self.init_position)
         self.navigator.waitUntilNav2Active()
 
+        # Initialize robot position & Wait for navigation to activate
+        self.set_initial_pose(self.init_position)
+
         # Navigate to loading position
-        if self.current_result:            
+        if self.current_result:
             self.get_logger().info('Navigating to pre loading position...')
             self.go_to_pose(self.pre_loading_position)
+        if self.current_result:
+            self.get_logger().info('Navigating to loading position...')
+            self.go_to_pose(self.loading_position)
+
+        # Attach shelf & increase robot footprint
+        if self.current_result:
+            self.get_logger().info('Arrived at loading position. Calling service to load shelf...')
+            self.attach_shelf()
+            self.update_robot_footprints(0.45)
+
+        # Navigate to shipping positions
+        if self.current_result:
+            self.get_logger().info('Navigating to post loading position...')
+            self.go_to_pose(self.post_loading_position)
+
         self.get_logger().info('End of program. Shutting down...')
 
 
