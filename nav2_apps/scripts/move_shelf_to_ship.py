@@ -1,6 +1,8 @@
 import rclpy
 from rclpy.duration import Duration
 from rclpy.node import Node
+from rcl_interfaces.srv import SetParameters
+from rcl_interfaces.msg import Parameter,ParameterValue,ParameterType
 
 from geometry_msgs.msg import PoseStamped
 from attach_shelf.srv import GoToLoading
@@ -21,6 +23,11 @@ class WarehouseNavigator(Node):
         self.current_result = True
 
         self.service_client = self.create_client(GoToLoading, '/approach_shelf')
+
+        # Define the nodes responsible for global and local costmaps
+        self.global_costmap_node = '/global_costmap/global_costmap'
+        self.local_costmap_node = '/local_costmap/local_costmap'
+        self.parameter_name = 'footprint' # 'robot_radius'
 
     def create_pose_stamped(self, posex, posey, posetheta, frame_id='map', stamp=None):
         """
@@ -107,8 +114,31 @@ class WarehouseNavigator(Node):
         else:
             self.get_logger().error('Service call failed.')
 
+    def update_robot_footprint(self, node_name, radius):
+        # https://www.theconstruct.ai/how-to-set-get-parameters-from-another-node-ros2-humble-python-tutorial/
+        new_footprint = f'[[{radius}, {radius}], [{radius}, {-radius}], [{-radius}, {-radius}], [{-radius}, {radius}]]'
+        client = self.create_client(SetParameters, node_name+'/set_parameters')
+        while not client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().error(f"Parameter service for {node_name} not available.")
+
+        request = SetParameters.Request()
+        param = Parameter()
+        param.name = self.parameter_name
+        param.value.type = ParameterType.PARAMETER_STRING
+        param.value.string_value = new_footprint
+
+        request.parameters.append(param)
+
+        future = client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+        if future.result():
+            self.get_logger().info(f"Successfully updated {self.parameter_name} to {radius} for {node_name}.")
+        else:
+            self.get_logger().error(f"Failed to update {self.parameter_name} for {node_name}.")
+
     def update_robot_footprints(self, radius):
-        pass
+        self.update_robot_footprint(self.global_costmap_node, radius)
+        self.update_robot_footprint(self.local_costmap_node, radius)
 
     def main(self, args=None):
         self.navigator.waitUntilNav2Active()
