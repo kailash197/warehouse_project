@@ -5,6 +5,7 @@ from rcl_interfaces.srv import SetParameters
 from rcl_interfaces.msg import Parameter,ParameterValue,ParameterType
 
 from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import String
 from attach_shelf.srv import GoToLoading
 
 from tf_transformations import quaternion_from_euler
@@ -17,9 +18,12 @@ class WarehouseNavigator(Node):
         self.navigator = BasicNavigator()
 
         self.init_position = [-0.10, 0.0, 0.0]
-        self.pre_loading_position = [5.55, -0.0, -1.4]
+        self.pre_loading_position = [5.55, -0.20, -1.4]
         self.loading_position = [5.55, -0.5, -1.4]
-        self.post_loading_position = [5.55, 0.25, 3.14]
+        self.post_loading_position = [5.55, -0.05, 3.14]
+        self.pre_shipping_position = [2.45, 0.15, 3.14]
+        self.shipping_position = [2.45, 1.45, 1.57]
+        self.post_shipping_position = [2.45, -0.1, -1.57]
         self.current_result = True
 
         self.service_client = self.create_client(GoToLoading, '/approach_shelf')
@@ -28,6 +32,8 @@ class WarehouseNavigator(Node):
         self.global_costmap_node = '/global_costmap/global_costmap'
         self.local_costmap_node = '/local_costmap/local_costmap'
         self.parameter_name = 'footprint' # 'robot_radius'
+
+        self.elevator_down_pub_ = self.create_publisher(String, '/elevator_down', 10)
 
     def create_pose_stamped(self, posex, posey, posetheta, frame_id='map', stamp=None):
         """
@@ -114,6 +120,12 @@ class WarehouseNavigator(Node):
         else:
             self.get_logger().error('Service call failed.')
 
+    def detach_shelf(self):
+        message = String()
+        message.data = ''
+        self.elevator_down_pub_.publish(message)
+        self.get_logger().info('Shelf successfully detached.')
+
     def update_robot_footprint(self, node_name, radius):
         # https://www.theconstruct.ai/how-to-set-get-parameters-from-another-node-ros2-humble-python-tutorial/
         new_footprint = f'[[{radius}, {radius}], [{radius}, {-radius}], [{-radius}, {-radius}], [{-radius}, {radius}]]'
@@ -164,6 +176,17 @@ class WarehouseNavigator(Node):
         if self.current_result:
             self.get_logger().info('Navigating to post loading position...')
             self.go_to_pose(self.post_loading_position)
+        if self.current_result:
+            self.get_logger().info('Navigating to pre-shipping position...')
+            self.go_to_pose(self.pre_shipping_position)
+        if self.current_result:
+            self.get_logger().info('Navigating to shipping position...')
+            self.go_to_pose(self.shipping_position)
+
+        # Detach shelf & lower robot footprint
+        if self.current_result:
+            self.detach_shelf()
+            self.update_robot_footprints(0.25)
 
         self.get_logger().info('End of program. Shutting down...')
 
