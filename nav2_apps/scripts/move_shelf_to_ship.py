@@ -7,6 +7,7 @@ from rcl_interfaces.msg import Parameter,ParameterValue,ParameterType
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String
 from attach_shelf.srv import GoToLoading
+from helper.srv import Rotation
 
 from tf_transformations import quaternion_from_euler
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
@@ -17,7 +18,7 @@ class WarehouseNavigator(Node):
         super().__init__('warehouse_navigator')
         self.navigator = BasicNavigator()
 
-        self.init_position = [-0.10, 0.0, 0.0]
+        self.init_position = [-0.20, 0.0, 0.0]
         self.pre_loading_position = [5.55, -0.20, -1.4]
         self.loading_position = [5.55, -0.5, -1.4]
         self.post_loading_position = [5.55, -0.05, 3.14]
@@ -27,6 +28,7 @@ class WarehouseNavigator(Node):
         self.current_result = True
 
         self.service_client = self.create_client(GoToLoading, '/approach_shelf')
+        self.rotation_service_client = self.create_client(Rotation, '/rotate_to_yaw_degrees')
 
         # Define the nodes responsible for global and local costmaps
         self.global_costmap_node = '/global_costmap/global_costmap'
@@ -120,6 +122,25 @@ class WarehouseNavigator(Node):
         else:
             self.get_logger().error('Service call failed.')
 
+    def rotate_to_yaw_degrees(self, yaw_degrees=-90.0):
+        while not self.rotation_service_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().info('Waiting for the /rotate_to_yaw_degrees service to become available...')
+
+        request = Rotation.Request()
+        request.angle = yaw_degrees
+
+        future = self.rotation_service_client.call_async(request)
+        rclpy.spin_until_future_complete(self, future)
+
+        if future.result() is not None:
+            response = future.result()
+            if response.complete:
+                self.get_logger().info(f'Successfully rotated to {yaw_degrees} degrees yaw.')
+            else:
+                self.get_logger().info('Failed to rotate to desired yaw.')
+        else:
+            self.get_logger().error('Rotation service call failed.')
+
     def detach_shelf(self):
         message = String()
         message.data = ''
@@ -187,6 +208,14 @@ class WarehouseNavigator(Node):
         if self.current_result:
             self.detach_shelf()
             self.update_robot_footprints(0.25)
+            self.rotate_to_yaw_degrees(-100.0)
+
+        # Return to initial position
+        if self.current_result:
+            self.get_logger().info('Navigating to pre return position...')
+            self.go_to_pose(self.post_shipping_position)
+        if self.current_result:
+            self.go_to_pose(self.init_position)
 
         self.get_logger().info('End of program. Shutting down...')
 
