@@ -1,0 +1,9 @@
+helper_node:
+  ros__parameters:
+    use_sim_time: false
+    scan_topic: "/scan"
+    cmd_topic: "/diffbot_base_controller/cmd_vel_unstamped"
+    rotation_service_name: "/rotation_degrees"
+    linear_vel: 0.20
+    odom_topic: "/diffbot_base_controller/odom"
+    rotation_offset: 0.02 #radians

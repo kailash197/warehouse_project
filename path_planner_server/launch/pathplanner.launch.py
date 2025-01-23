@@ -14,6 +14,8 @@ def resolve_yaml_file(context, yaml_file):
 
     if yaml_file == 'approach_service_server':
         pkg_dir = get_package_share_directory("attach_shelf")
+    if yaml_file == 'helper_config':
+        pkg_dir = get_package_share_directory("helper")
 
     if use_sim_time.lower() == 'true':
         return os.path.join(pkg_dir, config_dir, f'{yaml_file}_sim.yaml')
@@ -31,6 +33,12 @@ def add_nodes(context):
     filters_yaml = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'filters.yaml')
 
     return [
+        Node(
+            package='helper',
+            executable='helper_node',
+            output='screen',
+            parameters=[resolve_yaml_file(context, 'helper_config')],
+        ),
         Node(
             package='nav2_controller',
             executable='controller_server',
