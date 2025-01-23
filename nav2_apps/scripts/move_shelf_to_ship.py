@@ -1,10 +1,12 @@
+import math
+import numpy as np
 import rclpy
 from rclpy.duration import Duration
 from rclpy.node import Node
 from rcl_interfaces.srv import SetParameters
 from rcl_interfaces.msg import Parameter,ParameterValue,ParameterType
 
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Polygon, Point32
 from std_msgs.msg import String
 from attach_shelf.srv import GoToLoading
 from helper.srv import Rotation
@@ -19,8 +21,7 @@ class WarehouseNavigator(Node):
         self.navigator = BasicNavigator()
 
         self.init_position = [-0.20, 0.0, 0.0]
-        self.pre_loading_position = [5.55, -0.20, -1.4]
-        self.loading_position = [5.55, -0.5, -1.4]
+        self.loading_position = [5.65, -0.20, -1.57]
         self.post_loading_position = [5.55, -0.05, 3.14]
         self.pre_shipping_position = [2.45, 0.15, 3.14]
         self.shipping_position = [2.45, 1.45, 1.57]
@@ -147,9 +148,19 @@ class WarehouseNavigator(Node):
         self.elevator_down_pub_.publish(message)
         self.get_logger().info('Shelf successfully detached.')
 
-    def update_robot_footprint(self, node_name, radius):
+    def update_robot_footprint(self, node_name, shape, radius):
         # https://www.theconstruct.ai/how-to-set-get-parameters-from-another-node-ros2-humble-python-tutorial/
-        new_footprint = f'[[{radius}, {radius}], [{radius}, {-radius}], [{-radius}, {-radius}], [{-radius}, {radius}]]'
+        new_footprint = ''
+        if shape == 'square':
+            new_footprint = f'[[{radius}, {radius}], [{radius}, {-radius}], [{-radius}, {-radius}], [{-radius}, {radius}]]'
+        if shape == 'circle':
+            angles = np.arange(0, 2 * np.pi, 0.1)
+            message = '['
+            for angle in angles:
+                x = radius * math.cos(angle)
+                y = radius * math.sin(angle)
+                message += f'[{x}, {y}], '
+            new_footprint = message+']'
         client = self.create_client(SetParameters, node_name+'/set_parameters')
         while not client.wait_for_service(timeout_sec=1.0):
             self.get_logger().error(f"Parameter service for {node_name} not available.")
@@ -165,13 +176,13 @@ class WarehouseNavigator(Node):
         future = client.call_async(request)
         rclpy.spin_until_future_complete(self, future)
         if future.result():
-            self.get_logger().info(f"Successfully updated {self.parameter_name} to {radius} for {node_name}.")
+            self.get_logger().info(f"Footprint updated: {shape}[{radius}m] for {node_name}.")
         else:
             self.get_logger().error(f"Failed to update {self.parameter_name} for {node_name}.")
 
-    def update_robot_footprints(self, radius):
-        self.update_robot_footprint(self.global_costmap_node, radius)
-        self.update_robot_footprint(self.local_costmap_node, radius)
+    def update_robot_footprints(self, shape='square', radius=0.25):
+        self.update_robot_footprint(self.global_costmap_node, shape, radius)
+        self.update_robot_footprint(self.local_costmap_node, shape, radius)
 
     def main(self, args=None):
         self.navigator.waitUntilNav2Active()
@@ -181,9 +192,6 @@ class WarehouseNavigator(Node):
 
         # Navigate to loading position
         if self.current_result:
-            self.get_logger().info('Navigating to pre loading position...')
-            self.go_to_pose(self.pre_loading_position)
-        if self.current_result:
             self.get_logger().info('Navigating to loading position...')
             self.go_to_pose(self.loading_position)
 
@@ -191,7 +199,7 @@ class WarehouseNavigator(Node):
         if self.current_result:
             self.get_logger().info('Arrived at loading position. Calling service to load shelf...')
             self.attach_shelf()
-            self.update_robot_footprints(0.45)
+            self.update_robot_footprints(shape='square', radius=0.47)
 
         # Navigate to shipping positions
         if self.current_result:
@@ -207,7 +215,7 @@ class WarehouseNavigator(Node):
         # Detach shelf & lower robot footprint
         if self.current_result:
             self.detach_shelf()
-            self.update_robot_footprints(0.25)
+            self.update_robot_footprints(shape='circle', radius=0.25)
             self.rotate_to_yaw_degrees(-100.0)
 
         # Return to initial position
