@@ -5,6 +5,24 @@ from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
 from ament_index_python.packages import get_package_share_directory
 from launch_ros.actions import Node
 
+def resolve_config_file(context, config_file):
+    """Determine which YAML file to use based on the use_sim_time argument."""
+    map_filename = context.launch_configurations['map_file']
+    use_sim_time = 'true' if 'sim' in map_filename else 'false'
+
+    pkg_dir = get_package_share_directory('localization_server')
+    config_dir = 'config'
+    extension = 'yaml'
+
+    if config_file == 'localization_rviz':
+        config_dir = 'rviz'
+        extension = 'rviz'
+
+    if use_sim_time.lower() == 'true':
+        return os.path.join(pkg_dir, config_dir, f'{config_file}_sim.{extension}')
+    else:
+        return os.path.join(pkg_dir, config_dir, f'{config_file}_real.{extension}')
+
 def resolve_yaml_file(context, amcl_file):
     """Determine which YAML file to use based on the use_sim_time argument."""
     localization_server_dir = get_package_share_directory('localization_server')
@@ -13,20 +31,28 @@ def resolve_yaml_file(context, amcl_file):
     return os.path.join(localization_server_dir, 'config', f'{amcl_file}_{suffix}.yaml')
 
 def add_node(context):
+    localization_server_dir = get_package_share_directory('localization_server')
+    rviz_config_file = os.path.join(localization_server_dir, 'rviz', 'localization.rviz')
     return[
         Node(
             package='nav2_amcl',
             executable='amcl',
             name='amcl',
             output='screen',
-            parameters=[resolve_yaml_file(context, 'amcl_config')],
+            parameters=[resolve_config_file(context, 'amcl_config')],
+        ),
+        
+        Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            output='screen',
+            arguments=['-d', resolve_config_file(context, 'localization_rviz')]
         )
     ]
 
 def generate_launch_description():
     map_server_dir = get_package_share_directory('map_server')
-    localization_server_dir = get_package_share_directory('localization_server')
-    rviz_config_file = os.path.join(localization_server_dir, 'rviz', 'localization.rviz')
 
     declare_map_file_arg = DeclareLaunchArgument(
         'map_file',
@@ -60,12 +86,5 @@ def generate_launch_description():
             parameters=[{'use_sim_time': True},
                         {'autostart': True},
                         {'node_names': ['map_server', 'amcl']}
-                        ]),
-         Node(
-            package='rviz2',
-            executable='rviz2',
-            name='rviz2',
-            output='screen',
-            arguments=['-d', rviz_config_file]
-        )
+                        ])
     ])
