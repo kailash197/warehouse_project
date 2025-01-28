@@ -5,11 +5,13 @@ approach_shelf_server_node:
     scan_topic: "/scan"
     cmd_topic: "/cmd_vel"
     service_name: "/approach_shelf"
-    linear_vel: 0.20
-    intensity_threshold: 7000.0
+    linear_vel: 0.10
+    intensity_threshold: 2650.0
     target_frame: "robot_front_laser_base_link"
     source_frame: "cart_frame"
-    reference_frame: "odom"
+    reference_frame: "robot_odom"
     odom_topic: "/odom"
-    distance_forward: 0.30
+    distance_forward: 0.65
+    distance_to_cart: 0.39 # dont change 
     elevator_up_topic: "/elevator_up"
+    rotation_offset: 0.02

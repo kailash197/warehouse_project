@@ -2,6 +2,7 @@
 #include "geometry_msgs/msg/pose2_d.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
+#include "rclcpp/exceptions/exceptions.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "std_msgs/msg/string.hpp"
@@ -78,6 +79,7 @@ public:
     this->declare_parameter<std::string>("odom_topic",
                                          "/diffbot_base_controller/odom");
     this->declare_parameter<double>("distance_forward", 0.65);
+    this->declare_parameter<double>("distance_to_cart", 0.33);
     this->declare_parameter<double>("rotation_offset", 0.10);
     this->declare_parameter<std::string>("elevator_up_topic", "/elevator_up");
 
@@ -144,25 +146,27 @@ void AppoarchServiceServerNode::service_callback(
   cart_frame to the center point between both legs.
   */
   auto distance_forward = this->get_parameter("distance_forward").as_double();
+  auto distance_to_cart = this->get_parameter("distance_to_cart").as_double();
   auto linear_vel = this->get_parameter("linear_vel").as_double();
   auto rotation_offset = this->get_parameter("rotation_offset").as_double();
   RCLCPP_INFO(this->get_logger(), "Service Request Received.");
   bool attach_to_shelf = request->attach_to_shelf;
+  response->complete = false;
   // i. publish cart_frame transform, in both cases
   if (!found_both_legs_) {
     // False: if the laser only detects 1 shelf leg or none
     response->complete = false;
-    RCLCPP_INFO(this->get_logger(), "Service Completed.");
+    RCLCPP_INFO(this->get_logger(), "Service Failed.");
     return;
   }
+
   if (attach_to_shelf) {
-    RCLCPP_INFO(this->get_logger(), "State: Moving towards the shelf.");
-    // perform final approach
-    // i. move robot underneathe the shelf
     TransformStamped transform;
     Twist cmd_vel_;
-    double distance, dx, dy, yaw, angular_vel = 0.0;
-    while (rclcpp::ok()) {
+    double distance, dx, dy, yaw, angular_vel;
+    RCLCPP_INFO(this->get_logger(), "State: Moving towards the shelf.");
+    do {
+      angular_vel = 0.0;
       try {
         transform = tf_buffer_.lookupTransform("robot_base_link", "cart_frame",
                                                tf2::TimePointZero);
@@ -171,71 +175,61 @@ void AppoarchServiceServerNode::service_callback(
                     ex.what());
         return;
       }
-      // Calculate distance
+      // Calculate distance & angle
       dx = transform.transform.translation.x;
       dy = transform.transform.translation.y;
       distance = std::sqrt(dx * dx + dy * dy);
-
-      //   // Calculate angle (rotation about Z-axis)
       yaw = atan2(dy, dx);
-
-      if (distance > 0.15) {
-        while (rclcpp::ok() && fabs(yaw) > rotation_offset) {
-          try {
-            transform = tf_buffer_.lookupTransform(
-                "robot_base_link", "cart_frame", tf2::TimePointZero);
-          } catch (tf2::TransformException &ex) {
-            RCLCPP_WARN(this->get_logger(), "Could not get transform: %s",
-                        ex.what());
-            return;
-          }
-          dx = transform.transform.translation.x;
-          dy = transform.transform.translation.y;
-          yaw = atan2(dy, dx);
-          angular_vel = (yaw >= 0.0) ? 0.3 : -0.3;
-          //   angular_vel = 2 * yaw;
-          publish_velocity(0.0, angular_vel);
-        }
-        publish_velocity(linear_vel, 0.0);
-        RCLCPP_DEBUG(get_logger(), "Distance to cart TF: %.4fm", distance);
-
-      } else {
-        break;
+      if (fabs(yaw) > 0.1) {
+        angular_vel = 2 * yaw;
+      } else if (fabs(yaw) > 0.01) {
+        angular_vel = 0.1 * fabs(yaw) / yaw;
       }
-    }
+      publish_velocity(linear_vel, angular_vel);
+      RCLCPP_DEBUG(get_logger(), "Distance to cart: %.4fm, Ang Vel: %.2f",
+                   distance, angular_vel);
+      if (!rclcpp::ok()) {
+        return;
+      }
+    } while (distance > distance_to_cart);
     publish_velocity(0.0, 0.0);
 
-    // move further
     RCLCPP_INFO(this->get_logger(), "State: Get Under the Shelf: %.2fm",
                 distance_forward);
-    rclcpp::sleep_for(100ms);
-    double angle_diff = normalize_angle(-M_PI_2 - current_pos_.theta);
-    while (fabs(angle_diff) > rotation_offset) {
-      publish_velocity(0.0, 2 * angle_diff);
-      angle_diff = normalize_angle(-M_PI_2 - current_pos_.theta);
-    }
+    double angle_diff;
     yaw = current_pos_.theta;
     double x_target = current_pos_.x + distance_forward * cos(yaw);
     double y_target = current_pos_.y + distance_forward * sin(yaw);
-    dx = x_target;
-    dy = y_target;
     distance = std::sqrt(dx * dx + dy * dy);
 
-    while (rclcpp::ok() && distance > 0.01) {
-      publish_velocity(0.10, 0.0);
-      dx = 0.0;
+    do {
+      if (distance < 0.07) {
+        publish_velocity(0.05, 0.0);
+      } else {
+        publish_velocity(linear_vel, 0.0);
+      }
+      dx = x_target - current_pos_.x;
       dy = y_target - current_pos_.y;
       distance = std::sqrt(dx * dx + dy * dy);
-      RCLCPP_DEBUG(this->get_logger(), "Distance: %.2f.", distance);
-    }
+      RCLCPP_DEBUG(this->get_logger(), "Distance to target: %.2f.", distance);
+      if (!rclcpp::ok()) {
+        return;
+      }
+
+    } while (distance > 0.03);
     publish_velocity(0.0, 0.0);
 
-    // rotate to +90 + offset degrees yaw
+    // rotate  degrees yaw
+    double target_yaw = M_PI_2;
     do {
-      angle_diff =
-          normalize_angle(M_PI_2 + rotation_offset - current_pos_.theta);
+      angle_diff = normalize_angle(target_yaw - current_pos_.theta);
       publish_velocity(0, 2 * angle_diff);
-    } while (rclcpp::ok() && fabs(angle_diff) > rotation_offset);
+      RCLCPP_DEBUG(this->get_logger(), "Current yaw: %.4f, angle diff: %.4f",
+                   current_pos_.theta, angle_diff);
+      if (!rclcpp::ok()) {
+        return;
+      }
+    } while (fabs(angle_diff) > rotation_offset);
     publish_velocity(0.0, 0.0);
 
     // lift the shelf
@@ -256,7 +250,8 @@ void AppoarchServiceServerNode::laser_scan_callback(
   auto reference_frame = this->get_parameter("reference_frame").as_string();
   RCLCPP_DEBUG(get_logger(), "Inside LASER Callback");
   auto groups = find_midpoint_intensity_groups(scan_msg, intensity_threshold);
-  found_both_legs_ = (groups.size() == 2);
+  found_both_legs_ = (groups.size() >= 2);
+  RCLCPP_DEBUG(get_logger(), "Group size: %zu", groups.size());
   if (found_both_legs_) {
     double cart_x =
         (std::get<2>(groups[0]).first + std::get<2>(groups[1]).first) / 2.0;
@@ -318,8 +313,10 @@ Groups AppoarchServiceServerNode::find_midpoint_intensity_groups(
           count++;
         }
       }
-      std::pair<double, double> midpoint = {sum_x / count, sum_y / count};
-      groups.emplace_back(start_ind, end_ind, midpoint);
+      if (count > 10) {
+        std::pair<double, double> midpoint = {sum_x / count, sum_y / count};
+        groups.emplace_back(start_ind, end_ind, midpoint);
+      }
     }
   }
   return groups;

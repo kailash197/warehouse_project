@@ -11,6 +11,7 @@ approach_shelf_server_node:
     source_frame: "cart_frame"
     reference_frame: "odom"
     odom_topic: "/diffbot_base_controller/odom"
-    distance_forward: 0.40
+    distance_forward: 0.52
+    distance_to_cart: 0.15
     elevator_up_topic: "/elevator_up"
     rotation_offset: 0.02
