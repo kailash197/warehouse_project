@@ -5,22 +5,28 @@ from launch_ros.actions import Node
 from launch.substitutions import LaunchConfiguration
 import os
 
-def resolve_yaml_file(context, yaml_file):
+def resolve_config_file(context, config_file):
     """Determine which YAML file to use based on the use_sim_time argument."""
     use_sim_time = context.launch_configurations['use_sim_time']
 
     pkg_dir = get_package_share_directory('path_planner_server')
     config_dir = 'config'
+    extension = 'yaml'
 
-    if yaml_file == 'approach_service_server':
+    if config_file == 'approach_service_server':
         pkg_dir = get_package_share_directory("attach_shelf")
-    if yaml_file == 'helper_config':
+        
+    if config_file == 'helper_config':
         pkg_dir = get_package_share_directory("helper")
 
+    if config_file == 'pathplanning_rviz':
+        config_dir = 'rviz'
+        extension = 'rviz'
+
     if use_sim_time.lower() == 'true':
-        return os.path.join(pkg_dir, config_dir, f'{yaml_file}_sim.yaml')
+        return os.path.join(pkg_dir, config_dir, f'{config_file}_sim.{extension}')
     else:
-        return os.path.join(pkg_dir, config_dir, f'{yaml_file}_real.yaml')
+        return os.path.join(pkg_dir, config_dir, f'{config_file}_real.{extension}')
 
 def resolve_command_topic(context):
     use_sim_time = context.launch_configurations['use_sim_time']
@@ -30,14 +36,12 @@ def resolve_command_topic(context):
 def add_nodes(context):
     use_sim_time = LaunchConfiguration('use_sim_time')
 
-    filters_yaml = os.path.join(get_package_share_directory('path_planner_server'), 'config', 'filters.yaml')
-
     return [
         Node(
             package='helper',
             executable='helper_node',
             output='screen',
-            parameters=[resolve_yaml_file(context, 'helper_config')],
+            parameters=[resolve_config_file(context, 'helper_config')],
         ),
         Node(
             package='nav2_controller',
@@ -47,7 +51,7 @@ def add_nodes(context):
             remappings=[
                 ('cmd_vel', resolve_command_topic(context))
             ],
-            parameters=[{'use_sim_time': use_sim_time}, resolve_yaml_file(context, 'controller')],
+            parameters=[{'use_sim_time': use_sim_time}, resolve_config_file(context, 'controller')],
         ),
 
         Node(
@@ -55,7 +59,7 @@ def add_nodes(context):
             executable='planner_server',
             name='planner_server',
             output='screen',
-            parameters=[{'use_sim_time': use_sim_time}, resolve_yaml_file(context, 'planner')],
+            parameters=[{'use_sim_time': use_sim_time}, resolve_config_file(context, 'planner')],
         ),
 
         Node(
@@ -63,7 +67,10 @@ def add_nodes(context):
             executable='behavior_server',
             name='behavior_server',
             output='screen',
-            parameters=[{'use_sim_time': use_sim_time}, resolve_yaml_file(context, 'recoveries')]
+            remappings=[
+                ('cmd_vel', resolve_command_topic(context))
+            ],
+            parameters=[{'use_sim_time': use_sim_time}, resolve_config_file(context, 'recoveries')]
         ),
 
         Node(
@@ -71,7 +78,7 @@ def add_nodes(context):
             executable='bt_navigator',
             name='bt_navigator',
             output='screen',
-            parameters=[{'use_sim_time': use_sim_time}, resolve_yaml_file(context, 'bt_navigator')]
+            parameters=[{'use_sim_time': use_sim_time}, resolve_config_file(context, 'bt_navigator')]
         ),
 
         Node(
@@ -80,7 +87,7 @@ def add_nodes(context):
             name='filter_mask_server',
             output='screen',
             emulate_tty=True,
-            parameters=[filters_yaml]),
+            parameters=[resolve_config_file(context, 'filters')]),
 
         Node(
             package='nav2_map_server',
@@ -88,12 +95,21 @@ def add_nodes(context):
             name='costmap_filter_info_server',
             output='screen',
             emulate_tty=True,
-            parameters=[filters_yaml]),
+            parameters=[resolve_config_file(context, 'filters')]),
+        
         Node(
             package='attach_shelf',
             executable='approach_service_server_node',
             output='screen',
-            parameters=[resolve_yaml_file(context, 'approach_service_server')],
+            parameters=[resolve_config_file(context, 'approach_service_server')],
+        ),
+
+        Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            output='screen',
+            arguments=['-d', resolve_config_file(context, 'pathplanning_rviz')]
         ),
 
         Node(
@@ -112,9 +128,6 @@ def add_nodes(context):
 
 def generate_launch_description():
 
-    path_planner_server_dir = get_package_share_directory('path_planner_server')
-    rviz_config_file = os.path.join(path_planner_server_dir, 'rviz', 'pathplanning.rviz')
-
     declare_use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time',
         default_value='True',
@@ -124,12 +137,5 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_use_sim_time_arg,
-        dynamic_nodes,
-        Node(
-            package='rviz2',
-            executable='rviz2',
-            name='rviz2',
-            output='screen',
-            arguments=['-d', rviz_config_file]
-        ),
+        dynamic_nodes
     ])
